@@ -1,6 +1,6 @@
-# AI Engineering Assistant — Networking Infrastructure (Bicep)
+# Networking Infrastructure (Bicep)
 
-Production-ready, modular Bicep that deploys the private networking layer for the
+Production-ready, modular Bicep that deploys a private networking layer for an
 existing Azure environment: a hub virtual network, a Point-to-Site VPN gateway,
 Private Endpoints + Private DNS for every supported service, and least-privilege
 Network Security Groups. Existing resources are referenced with the `existing`
