@@ -28,6 +28,10 @@ infra/
 
 ## What gets deployed
 
+> The names, address spaces, and IPs below are the **example default values** in
+> [`main.parameters.json`](main.parameters.json). All of them are parameters —
+> change them to match your environment before deploying.
+
 | Area | Resource |
 | --- | --- |
 | Virtual network | Hub VNet `10.10.0.0/23` |
