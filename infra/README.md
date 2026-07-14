@@ -30,44 +30,44 @@ infra/
 
 | Area | Resource |
 | --- | --- |
-| Virtual network | `vnet-ai-dev` `10.10.0.0/23` |
+| Virtual network | Hub VNet `10.10.0.0/23` |
 | Subnets | `GatewaySubnet` `10.10.0.0/26`, `snet-private-endpoints` `10.10.0.64/27`, `snet-compute` `10.10.0.96/27`, `snet-management` `10.10.0.128/27`, `snet-dns-inbound` `10.10.0.160/28` (delegated to the DNS resolver) |
 | Reserved | `10.10.0.176/28` – `10.10.1.255` left unallocated for future growth |
 | VPN | Zone-redundant Standard Public IP + Route-based VPN gateway (`VpnGw2AZ`), OpenVPN, Microsoft Entra ID auth, client pool `172.16.10.0/24`, split tunneling |
 | Private DNS | `cognitiveservices`, `openai`, `services.ai`, `documents`, `blob`, `file`, `queue`, `table` privatelink zones + VNet links |
-| DNS resolution | Azure DNS Private Resolver `dnspr-ai-dev` with a static inbound endpoint at **10.10.0.164**; the VNet's DNS server is set to this IP so in-VNet resources resolve private endpoints automatically |
+| DNS resolution | Azure DNS Private Resolver with a static inbound endpoint at **10.10.0.164**; the VNet's DNS server is set to this IP so in-VNet resources resolve private endpoints automatically |
 | Private Endpoints | Storage (blob/file/queue/table), Cosmos DB (`Sql`), AI Services (`account`), AI Foundry (`account`) |
-| AI Search private links | Shared private links (managed private endpoints) from `srchwxdev001` to: storage `blob` (indexer data source), AI Foundry `openai_account` (chat-completion skills), and the multi-service Cognitive account `cognitiveservices_account` (indexer skills) |
+| AI Search private links | Shared private links (managed private endpoints) from the search service to: storage `blob` (indexer data source), AI Foundry `openai_account` (chat-completion skills), and the multi-service Cognitive account `cognitiveservices_account` (indexer skills) |
 | NSGs | One per data subnet (private-endpoints / compute / management), least-privilege |
 
 ## Existing resources (referenced, not created)
 
-| Name | Type | Action |
+| Resource | Type | Action |
 | --- | --- | --- |
-| `stwxdev001` | Storage | 4 private endpoints + public access disabled |
-| `cosmoswxdev001` | Cosmos DB | Private endpoint + public access disabled |
-| `multiwxdev001` | AI Services multi-service | Private endpoint + public access disabled + AI Search shared private link (`cognitiveservices_account`) |
-| `aifwxdev001` | AI Foundry (Cognitive Services) | Private endpoint + public access disabled + AI Search shared private link (`openai_account`) |
-| `srchwxdev001` | AI Search | Shared private links to storage blob, AI Foundry, and the multi-service account (managed private endpoints for indexers/skills) |
-| `projDev001` | AI Foundry Project | **No PE** — sub-resource of the Foundry account |
-| `bingcustwxdev001` | Bing Search | **No PE** — Private Link is not supported for Bing Search |
+| Storage account | Storage | 4 private endpoints + public access disabled |
+| Cosmos DB account | Cosmos DB | Private endpoint + public access disabled |
+| AI Services (multi-service) | AI Services multi-service | Private endpoint + public access disabled + AI Search shared private link (`cognitiveservices_account`) |
+| AI Foundry account | AI Foundry (Cognitive Services) | Private endpoint + public access disabled + AI Search shared private link (`openai_account`) |
+| AI Search service | AI Search | Shared private links to storage blob, AI Foundry, and the multi-service account (managed private endpoints for indexers/skills) |
+| AI Foundry project | AI Foundry Project | **No PE** — sub-resource of the Foundry account |
+| Bing Search account | Bing Search | **No PE** — Private Link is not supported for Bing Search |
 
 ## AI Search shared private links (managed private endpoints)
 
-The AI Search service `srchwxdev001` reaches private-only dependencies through
+The AI Search service reaches private-only dependencies through
 **shared private link resources** (`Microsoft.Search/searchServices/sharedPrivateLinkResources`).
 Each one provisions a Microsoft-managed private endpoint on the search side and a
 corresponding private endpoint connection on the target that must be **approved**.
 
 | Shared private link | Target | Group ID | Purpose |
 | --- | --- | --- | --- |
-| `spl-srchwxdev001-blob` | `stwxdev001` (storage) | `blob` | Indexer data source (read blobs) |
-| `spl-aifwxdev001-openai` | `aifwxdev001` (AI Foundry) | `openai_account` | Chat-completion skills |
-| `spl-multiwxdev001-cognitiveservices` | `multiwxdev001` (multi-service) | `cognitiveservices_account` | Indexer cognitive skills |
+| storage blob link | Storage account | `blob` | Indexer data source (read blobs) |
+| AI Foundry link | AI Foundry account | `openai_account` | Chat-completion skills |
+| multi-service link | Multi-service account | `cognitiveservices_account` | Indexer cognitive skills |
 
 Approval behaviour:
 - **Storage** connections **auto-approve** (same subscription) — no action needed.
-- **Cognitive Services** connections (`aifwxdev001`, `multiwxdev001`) come up
+- **Cognitive Services** connections (AI Foundry, multi-service) come up
   **Pending** and must be approved once:
   ```bash
   # Find the pending connection name
@@ -80,8 +80,8 @@ Approval behaviour:
     --description "Approved for AI Search"
   ```
 
-> The search service must be a billable SKU (Basic or higher) — `srchwxdev001` is
-> `standard`. Shared private link resources are created serially (AI Search does
+> The search service must be a billable SKU (Basic or higher) — use
+> `standard` or above. Shared private link resources are created serially (AI Search does
 > not allow concurrent creation), which the template enforces via `dependsOn`.
 > The managed private endpoint object lives in a Microsoft-owned subscription;
 > opening it from the portal returns a "wrong issuer" 401 — that is expected.
@@ -153,11 +153,11 @@ Copy-Item infra/deploy.local.json.example infra/deploy.local.json
 
 ```json
 {
-  "aiServicesAccountName": "multiwxdev001",
-  "aiFoundryAccountName": "aifwxdev001",
-  "cosmosAccountName": "cosmoswxdev001",
-  "storageAccountName": "stwxdev001",
-  "searchServiceName": "srchwxdev001"
+  "aiServicesAccountName": "<your-ai-services-account>",
+  "aiFoundryAccountName": "<your-ai-foundry-account>",
+  "cosmosAccountName": "<your-cosmos-account>",
+  "storageAccountName": "<your-storage-account>",
+  "searchServiceName": "<your-search-service>"
 }
 ```
 
@@ -245,13 +245,13 @@ blocked (public access is disabled).
 
 > The `<clientconfig>` block is only required for P2S VPN clients. If the DNS
 > resolver IP ever changes, update `<dnsserver>` to match the VNet's DNS server
-> (`az network vnet show -n vnet-ai-dev -g <rg> --query dhcpOptions.dnsServers`).
+> (`az network vnet show -n <your-vnet-name> -g <rg> --query dhcpOptions.dnsServers`).
 
 ### Verify
 
 - After connecting, confirm private resolution:
   ```bash
-  nslookup stwxdev001.blob.core.windows.net   # resolves to a 10.10.0.64/27 address
+  nslookup <your-storage-account>.blob.core.windows.net   # resolves to a 10.10.0.64/27 address
   ```
 - The VPN gateway can take 30–45 minutes to provision on first deploy; it
   deploys in parallel with the private-link modules.
