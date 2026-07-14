@@ -1,0 +1,3245 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "4792769678729143548"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all net-new networking resources. Defaults to the resource group location."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "workload": "ai-engineering-assistant",
+        "environment": "dev",
+        "managedBy": "bicep"
+      },
+      "metadata": {
+        "description": "Tags applied to all deployed resources."
+      }
+    },
+    "disablePublicNetworkAccess": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Disable public network access on supported existing services after private endpoints are configured."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnet-ai-dev",
+      "metadata": {
+        "description": "Name of the virtual network."
+      }
+    },
+    "vnetAddressPrefixes": {
+      "type": "array",
+      "defaultValue": [
+        "10.10.0.0/23"
+      ],
+      "metadata": {
+        "description": "Address space for the virtual network."
+      }
+    },
+    "gatewaySubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.0/26",
+      "metadata": {
+        "description": "CIDR for the GatewaySubnet."
+      }
+    },
+    "privateEndpointsSubnetName": {
+      "type": "string",
+      "defaultValue": "snet-private-endpoints",
+      "metadata": {
+        "description": "Name of the private endpoints subnet."
+      }
+    },
+    "privateEndpointsSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.64/27",
+      "metadata": {
+        "description": "CIDR for the private endpoints subnet."
+      }
+    },
+    "computeSubnetName": {
+      "type": "string",
+      "defaultValue": "snet-compute",
+      "metadata": {
+        "description": "Name of the compute subnet."
+      }
+    },
+    "computeSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.96/27",
+      "metadata": {
+        "description": "CIDR for the compute subnet."
+      }
+    },
+    "managementSubnetName": {
+      "type": "string",
+      "defaultValue": "snet-management",
+      "metadata": {
+        "description": "Name of the management subnet."
+      }
+    },
+    "managementSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.128/27",
+      "metadata": {
+        "description": "CIDR for the management subnet."
+      }
+    },
+    "dnsResolverInboundSubnetName": {
+      "type": "string",
+      "defaultValue": "snet-dns-inbound",
+      "metadata": {
+        "description": "Name of the DNS Private Resolver inbound endpoint subnet."
+      }
+    },
+    "dnsResolverInboundSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.10.0.160/28",
+      "metadata": {
+        "description": "CIDR for the DNS Private Resolver inbound endpoint subnet (min /28)."
+      }
+    },
+    "dnsResolverInboundIp": {
+      "type": "string",
+      "defaultValue": "10.10.0.164",
+      "metadata": {
+        "description": "Static private IP for the DNS Private Resolver inbound endpoint. Also set as the VNet DNS server and pushed to P2S VPN clients. Must be inside the inbound subnet (first usable IP is .164 in a /28)."
+      }
+    },
+    "dnsResolverName": {
+      "type": "string",
+      "defaultValue": "dnspr-ai-dev",
+      "metadata": {
+        "description": "Name of the DNS Private Resolver."
+      }
+    },
+    "dnsResolverInboundEndpointName": {
+      "type": "string",
+      "defaultValue": "inbound",
+      "metadata": {
+        "description": "Name of the DNS Private Resolver inbound endpoint."
+      }
+    },
+    "privateEndpointsNsgName": {
+      "type": "string",
+      "defaultValue": "nsg-snet-private-endpoints",
+      "metadata": {
+        "description": "NSG name for the private endpoints subnet."
+      }
+    },
+    "computeNsgName": {
+      "type": "string",
+      "defaultValue": "nsg-snet-compute",
+      "metadata": {
+        "description": "NSG name for the compute subnet."
+      }
+    },
+    "managementNsgName": {
+      "type": "string",
+      "defaultValue": "nsg-snet-management",
+      "metadata": {
+        "description": "NSG name for the management subnet."
+      }
+    },
+    "vpnGatewayName": {
+      "type": "string",
+      "defaultValue": "vpngw-ai-dev",
+      "metadata": {
+        "description": "Name of the VPN gateway."
+      }
+    },
+    "vpnPublicIpName": {
+      "type": "string",
+      "defaultValue": "pip-vpngw-ai-dev",
+      "metadata": {
+        "description": "Name of the VPN gateway Public IP."
+      }
+    },
+    "vpnGatewaySku": {
+      "type": "string",
+      "defaultValue": "VpnGw2AZ",
+      "metadata": {
+        "description": "VPN gateway SKU. Change if VpnGw2AZ is unavailable in the region."
+      }
+    },
+    "vpnClientAddressPool": {
+      "type": "string",
+      "defaultValue": "172.16.10.0/24",
+      "metadata": {
+        "description": "VPN client address pool (must not overlap the VNet)."
+      }
+    },
+    "aadTenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Entra ID tenant GUID for P2S authentication. Defaults to the deployment subscription tenant."
+      }
+    },
+    "aadAudience": {
+      "type": "string",
+      "defaultValue": "41b23e61-6c1e-4545-b367-cd054e0ed4b4",
+      "metadata": {
+        "description": "Entra audience for the Azure VPN Client. Default is the Microsoft-registered Azure VPN Client application ID."
+      }
+    },
+    "aiServicesAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure AI Services multi-service account name."
+      }
+    },
+    "aiFoundryAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure AI Foundry account name."
+      }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure Cosmos DB account name."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure Storage account name."
+      }
+    },
+    "searchServiceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Azure AI Search service name (used for the indexer shared private link to storage)."
+      }
+    },
+    "searchSharedPrivateLinkGroupId": {
+      "type": "string",
+      "defaultValue": "blob",
+      "metadata": {
+        "description": "Storage sub-resource the AI Search indexer connects to via the shared private link."
+      }
+    },
+    "searchFoundryGroupId": {
+      "type": "string",
+      "defaultValue": "openai_account",
+      "metadata": {
+        "description": "Shared private link group ID for the AI Search -> AI Foundry connection (chat completion skills)."
+      }
+    },
+    "searchMultiServiceGroupId": {
+      "type": "string",
+      "defaultValue": "cognitiveservices_account",
+      "metadata": {
+        "description": "Shared private link group ID for the AI Search -> multi-service Cognitive account connection (indexer skills)."
+      }
+    },
+    "storageAccountSku": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "metadata": {
+        "description": "Storage account SKU (must match the live account)."
+      }
+    },
+    "storageAccountKind": {
+      "type": "string",
+      "defaultValue": "StorageV2",
+      "metadata": {
+        "description": "Storage account kind (must match the live account)."
+      }
+    },
+    "cosmosKind": {
+      "type": "string",
+      "defaultValue": "GlobalDocumentDB",
+      "metadata": {
+        "description": "Cosmos account kind (must match the live account)."
+      }
+    },
+    "cosmosPrimaryRegion": {
+      "type": "string",
+      "defaultValue": "[parameters('location')]",
+      "metadata": {
+        "description": "Cosmos primary write region (must match the live account)."
+      }
+    },
+    "cosmosConsistencyLevel": {
+      "type": "string",
+      "defaultValue": "Session",
+      "metadata": {
+        "description": "Cosmos default consistency level (must match the live account)."
+      }
+    },
+    "cosmosCapabilities": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Cosmos capabilities array (must match the live account)."
+      }
+    },
+    "aiServicesKind": {
+      "type": "string",
+      "defaultValue": "CognitiveServices",
+      "metadata": {
+        "description": "AI Services account kind (must match the live account)."
+      }
+    },
+    "aiFoundryKind": {
+      "type": "string",
+      "defaultValue": "AIServices",
+      "metadata": {
+        "description": "AI Foundry account kind (must match the live account)."
+      }
+    },
+    "aiServicesSku": {
+      "type": "string",
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "AI Services account SKU (must match the live account)."
+      }
+    },
+    "aiFoundrySku": {
+      "type": "string",
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "AI Foundry account SKU (must match the live account)."
+      }
+    },
+    "aiServicesCustomSubDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "AI Services custom subdomain (blank = use account name)."
+      }
+    },
+    "aiFoundryCustomSubDomain": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "AI Foundry custom subdomain (blank = use account name)."
+      }
+    }
+  },
+  "variables": {
+    "privateDnsZoneNames": [
+      "privatelink.cognitiveservices.azure.com",
+      "privatelink.openai.azure.com",
+      "privatelink.services.ai.azure.com",
+      "privatelink.documents.azure.com",
+      "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+      "[format('privatelink.file.{0}', environment().suffixes.storage)]",
+      "[format('privatelink.queue.{0}', environment().suffixes.storage)]",
+      "[format('privatelink.table.{0}', environment().suffixes.storage)]"
+    ],
+    "cognitiveServicesZoneName": "privatelink.cognitiveservices.azure.com",
+    "openAiZoneName": "privatelink.openai.azure.com",
+    "servicesAiZoneName": "privatelink.services.ai.azure.com",
+    "documentsZoneName": "privatelink.documents.azure.com",
+    "blobZoneName": "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+    "fileZoneName": "[format('privatelink.file.{0}', environment().suffixes.storage)]",
+    "queueZoneName": "[format('privatelink.queue.{0}', environment().suffixes.storage)]",
+    "tableZoneName": "[format('privatelink.table.{0}', environment().suffixes.storage)]",
+    "privateEndpointsNsgRules": [
+      {
+        "name": "Allow-VpnClients-To-PrivateEndpoints",
+        "properties": {
+          "description": "Allow P2S VPN clients to reach private endpoints (HTTPS + SMB file shares).",
+          "priority": 200,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourceAddressPrefix": "[parameters('vpnClientAddressPool')]",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "[parameters('privateEndpointsSubnetPrefix')]",
+          "destinationPortRanges": [
+            "443",
+            "445"
+          ]
+        }
+      },
+      {
+        "name": "Allow-Vnet-Inbound",
+        "properties": {
+          "description": "Allow intra-VNet traffic to private endpoints.",
+          "priority": 300,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "*",
+          "sourceAddressPrefix": "VirtualNetwork",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "VirtualNetwork",
+          "destinationPortRange": "*"
+        }
+      },
+      {
+        "name": "Deny-Internet-Inbound",
+        "properties": {
+          "description": "Deny all inbound traffic originating from the Internet.",
+          "priority": 4096,
+          "direction": "Inbound",
+          "access": "Deny",
+          "protocol": "*",
+          "sourceAddressPrefix": "Internet",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "*",
+          "destinationPortRange": "*"
+        }
+      }
+    ],
+    "computeNsgRules": [
+      {
+        "name": "Allow-VpnClients-Management",
+        "properties": {
+          "description": "Allow P2S VPN clients to manage compute workloads (SSH/RDP/HTTPS).",
+          "priority": 200,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourceAddressPrefix": "[parameters('vpnClientAddressPool')]",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "[parameters('computeSubnetPrefix')]",
+          "destinationPortRanges": [
+            "22",
+            "3389",
+            "443"
+          ]
+        }
+      },
+      {
+        "name": "Allow-Vnet-Inbound",
+        "properties": {
+          "description": "Allow intra-VNet traffic.",
+          "priority": 300,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "*",
+          "sourceAddressPrefix": "VirtualNetwork",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "VirtualNetwork",
+          "destinationPortRange": "*"
+        }
+      },
+      {
+        "name": "Deny-Internet-Inbound",
+        "properties": {
+          "description": "Deny all inbound traffic originating from the Internet.",
+          "priority": 4096,
+          "direction": "Inbound",
+          "access": "Deny",
+          "protocol": "*",
+          "sourceAddressPrefix": "Internet",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "*",
+          "destinationPortRange": "*"
+        }
+      }
+    ],
+    "managementNsgRules": [
+      {
+        "name": "Allow-VpnClients-Management",
+        "properties": {
+          "description": "Allow P2S VPN clients to reach management/jumpbox hosts (SSH/RDP).",
+          "priority": 200,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "Tcp",
+          "sourceAddressPrefix": "[parameters('vpnClientAddressPool')]",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "[parameters('managementSubnetPrefix')]",
+          "destinationPortRanges": [
+            "22",
+            "3389"
+          ]
+        }
+      },
+      {
+        "name": "Allow-Vnet-Inbound",
+        "properties": {
+          "description": "Allow intra-VNet traffic.",
+          "priority": 300,
+          "direction": "Inbound",
+          "access": "Allow",
+          "protocol": "*",
+          "sourceAddressPrefix": "VirtualNetwork",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "VirtualNetwork",
+          "destinationPortRange": "*"
+        }
+      },
+      {
+        "name": "Deny-Internet-Inbound",
+        "properties": {
+          "description": "Deny all inbound traffic originating from the Internet.",
+          "priority": 4096,
+          "direction": "Inbound",
+          "access": "Deny",
+          "protocol": "*",
+          "sourceAddressPrefix": "Internet",
+          "sourcePortRange": "*",
+          "destinationAddressPrefix": "*",
+          "destinationPortRange": "*"
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "nsg-private-endpoints",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "nsgName": {
+            "value": "[parameters('privateEndpointsNsgName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "securityRules": {
+            "value": "[variables('privateEndpointsNsgRules')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "3490678558441806282"
+            }
+          },
+          "parameters": {
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the network security group."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the NSG."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags applied to the NSG."
+              }
+            },
+            "securityRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Array of securityRules objects (Microsoft.Network/networkSecurityGroups/securityRules shape)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('nsgName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": "[parameters('securityRules')]"
+              }
+            }
+          ],
+          "outputs": {
+            "nsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created NSG."
+              },
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+            },
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the created NSG."
+              },
+              "value": "[parameters('nsgName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "nsg-compute",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "nsgName": {
+            "value": "[parameters('computeNsgName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "securityRules": {
+            "value": "[variables('computeNsgRules')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "3490678558441806282"
+            }
+          },
+          "parameters": {
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the network security group."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the NSG."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags applied to the NSG."
+              }
+            },
+            "securityRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Array of securityRules objects (Microsoft.Network/networkSecurityGroups/securityRules shape)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('nsgName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": "[parameters('securityRules')]"
+              }
+            }
+          ],
+          "outputs": {
+            "nsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created NSG."
+              },
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+            },
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the created NSG."
+              },
+              "value": "[parameters('nsgName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "nsg-management",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "nsgName": {
+            "value": "[parameters('managementNsgName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "securityRules": {
+            "value": "[variables('managementNsgRules')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "3490678558441806282"
+            }
+          },
+          "parameters": {
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the network security group."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the NSG."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags applied to the NSG."
+              }
+            },
+            "securityRules": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Array of securityRules objects (Microsoft.Network/networkSecurityGroups/securityRules shape)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('nsgName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": "[parameters('securityRules')]"
+              }
+            }
+          ],
+          "outputs": {
+            "nsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created NSG."
+              },
+              "value": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]"
+            },
+            "nsgName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the created NSG."
+              },
+              "value": "[parameters('nsgName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vnet",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetName": {
+            "value": "[parameters('vnetName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "addressPrefixes": {
+            "value": "[parameters('vnetAddressPrefixes')]"
+          },
+          "gatewaySubnetPrefix": {
+            "value": "[parameters('gatewaySubnetPrefix')]"
+          },
+          "privateEndpointsSubnetName": {
+            "value": "[parameters('privateEndpointsSubnetName')]"
+          },
+          "privateEndpointsSubnetPrefix": {
+            "value": "[parameters('privateEndpointsSubnetPrefix')]"
+          },
+          "computeSubnetName": {
+            "value": "[parameters('computeSubnetName')]"
+          },
+          "computeSubnetPrefix": {
+            "value": "[parameters('computeSubnetPrefix')]"
+          },
+          "managementSubnetName": {
+            "value": "[parameters('managementSubnetName')]"
+          },
+          "managementSubnetPrefix": {
+            "value": "[parameters('managementSubnetPrefix')]"
+          },
+          "dnsResolverInboundSubnetName": {
+            "value": "[parameters('dnsResolverInboundSubnetName')]"
+          },
+          "dnsResolverInboundSubnetPrefix": {
+            "value": "[parameters('dnsResolverInboundSubnetPrefix')]"
+          },
+          "dnsServers": {
+            "value": [
+              "[parameters('dnsResolverInboundIp')]"
+            ]
+          },
+          "privateEndpointsNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-private-endpoints'), '2025-04-01').outputs.nsgId.value]"
+          },
+          "computeNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-compute'), '2025-04-01').outputs.nsgId.value]"
+          },
+          "managementNsgId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'nsg-management'), '2025-04-01').outputs.nsgId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "13125211267854064069"
+            }
+          },
+          "parameters": {
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the virtual network."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the virtual network."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "addressPrefixes": {
+              "type": "array",
+              "metadata": {
+                "description": "Address space for the virtual network."
+              }
+            },
+            "gatewaySubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR for the GatewaySubnet (VPN gateway)."
+              }
+            },
+            "privateEndpointsSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the private endpoints subnet."
+              }
+            },
+            "privateEndpointsSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR for the private endpoints subnet."
+              }
+            },
+            "computeSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the compute subnet."
+              }
+            },
+            "computeSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR for the compute subnet."
+              }
+            },
+            "managementSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the management subnet."
+              }
+            },
+            "managementSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR for the management subnet."
+              }
+            },
+            "privateEndpointsNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the NSG to associate with the private endpoints subnet."
+              }
+            },
+            "computeNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the NSG to associate with the compute subnet."
+              }
+            },
+            "managementNsgId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the NSG to associate with the management subnet."
+              }
+            },
+            "dnsResolverInboundSubnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the DNS Private Resolver inbound endpoint subnet (delegated to Microsoft.Network/dnsResolvers)."
+              }
+            },
+            "dnsResolverInboundSubnetPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "CIDR for the DNS Private Resolver inbound endpoint subnet (min /28)."
+              }
+            },
+            "dnsServers": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Custom DNS servers for the virtual network. These are also pushed to P2S VPN clients. Empty = Azure-provided DNS."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": "[parameters('addressPrefixes')]"
+                },
+                "dhcpOptions": "[if(empty(parameters('dnsServers')), null(), createObject('dnsServers', parameters('dnsServers')))]",
+                "subnets": [
+                  {
+                    "name": "GatewaySubnet",
+                    "properties": {
+                      "addressPrefix": "[parameters('gatewaySubnetPrefix')]"
+                    }
+                  },
+                  {
+                    "name": "[parameters('privateEndpointsSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('privateEndpointsSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[parameters('privateEndpointsNsgId')]"
+                      },
+                      "privateEndpointNetworkPolicies": "Enabled",
+                      "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                  },
+                  {
+                    "name": "[parameters('computeSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('computeSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[parameters('computeNsgId')]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[parameters('managementSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('managementSubnetPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[parameters('managementNsgId')]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "[parameters('dnsResolverInboundSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "[parameters('dnsResolverInboundSubnetPrefix')]",
+                      "delegations": [
+                        {
+                          "name": "Microsoft.Network.dnsResolvers",
+                          "properties": {
+                            "serviceName": "Microsoft.Network/dnsResolvers"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the virtual network."
+              },
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the virtual network."
+              },
+              "value": "[parameters('vnetName')]"
+            },
+            "gatewaySubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the GatewaySubnet."
+              },
+              "value": "[format('{0}/subnets/GatewaySubnet', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')))]"
+            },
+            "privateEndpointsSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the private endpoints subnet."
+              },
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('privateEndpointsSubnetName'))]"
+            },
+            "computeSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the compute subnet."
+              },
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('computeSubnetName'))]"
+            },
+            "managementSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the management subnet."
+              },
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('managementSubnetName'))]"
+            },
+            "dnsResolverInboundSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the DNS Private Resolver inbound endpoint subnet."
+              },
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), parameters('dnsResolverInboundSubnetName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'nsg-compute')]",
+        "[resourceId('Microsoft.Resources/deployments', 'nsg-management')]",
+        "[resourceId('Microsoft.Resources/deployments', 'nsg-private-endpoints')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "private-dns",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.vnetId.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "zoneNames": {
+            "value": "[variables('privateDnsZoneNames')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "15993381136789562039"
+            }
+          },
+          "parameters": {
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the virtual network to link the zones to."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "zoneNames": {
+              "type": "array",
+              "metadata": {
+                "description": "List of Private DNS zone names to create and link."
+              }
+            }
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "zones",
+                "count": "[length(parameters('zoneNames'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "[parameters('zoneNames')[copyIndex()]]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "copy": {
+                "name": "vnetLinks",
+                "count": "[length(parameters('zoneNames'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', parameters('zoneNames')[copyIndex()], format('link-{0}', uniqueString(parameters('vnetId'), parameters('zoneNames')[copyIndex()])))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', parameters('zoneNames')[copyIndex()])]"
+              ]
+            }
+          ],
+          "outputs": {
+            "zoneIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Array of created Private DNS zone resource IDs."
+              },
+              "copy": {
+                "count": "[length(parameters('zoneNames'))]",
+                "input": "[resourceId('Microsoft.Network/privateDnsZones', parameters('zoneNames')[copyIndex()])]"
+              }
+            },
+            "zoneMap": {
+              "type": "object",
+              "metadata": {
+                "description": "Map of zone name -> resource ID for lookup by consumers."
+              },
+              "value": "[toObject(parameters('zoneNames'), lambda('name', lambdaVariables('name')), lambda('name', resourceId('Microsoft.Network/privateDnsZones', lambdaVariables('name'))))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "dns-resolver",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "dnsResolverName": {
+            "value": "[parameters('dnsResolverName')]"
+          },
+          "inboundEndpointName": {
+            "value": "[parameters('dnsResolverInboundEndpointName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.vnetId.value]"
+          },
+          "inboundSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.dnsResolverInboundSubnetId.value]"
+          },
+          "inboundStaticIp": {
+            "value": "[parameters('dnsResolverInboundIp')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "5055448393465681294"
+            }
+          },
+          "parameters": {
+            "dnsResolverName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the DNS Private Resolver."
+              }
+            },
+            "inboundEndpointName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the inbound endpoint."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the virtual network to attach the resolver to."
+              }
+            },
+            "inboundSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the delegated inbound endpoint subnet."
+              }
+            },
+            "inboundStaticIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Static private IP for the inbound endpoint (must be within the inbound subnet and match the VNet DNS server value)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/dnsResolvers",
+              "apiVersion": "2022-07-01",
+              "name": "[parameters('dnsResolverName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/dnsResolvers/inboundEndpoints",
+              "apiVersion": "2022-07-01",
+              "name": "[format('{0}/{1}', parameters('dnsResolverName'), parameters('inboundEndpointName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "subnet": {
+                      "id": "[parameters('inboundSubnetId')]"
+                    },
+                    "privateIpAllocationMethod": "Static",
+                    "privateIpAddress": "[parameters('inboundStaticIp')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/dnsResolvers', parameters('dnsResolverName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "dnsResolverId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the DNS Private Resolver."
+              },
+              "value": "[resourceId('Microsoft.Network/dnsResolvers', parameters('dnsResolverName'))]"
+            },
+            "inboundEndpointIp": {
+              "type": "string",
+              "metadata": {
+                "description": "Private IP address of the inbound endpoint (use as the DNS server for VPN clients)."
+              },
+              "value": "[parameters('inboundStaticIp')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vpn-gateway",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "publicIpName": {
+            "value": "[parameters('vpnPublicIpName')]"
+          },
+          "gatewayName": {
+            "value": "[parameters('vpnGatewayName')]"
+          },
+          "gatewaySubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.gatewaySubnetId.value]"
+          },
+          "vpnGatewaySku": {
+            "value": "[parameters('vpnGatewaySku')]"
+          },
+          "vpnClientAddressPool": {
+            "value": "[parameters('vpnClientAddressPool')]"
+          },
+          "aadTenantId": {
+            "value": "[parameters('aadTenantId')]"
+          },
+          "aadAudience": {
+            "value": "[parameters('aadAudience')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "127916009528040808"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "publicIpName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the VPN gateway Public IP."
+              }
+            },
+            "gatewayName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Virtual Network Gateway."
+              }
+            },
+            "gatewaySubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the GatewaySubnet."
+              }
+            },
+            "vpnGatewaySku": {
+              "type": "string",
+              "defaultValue": "VpnGw2AZ",
+              "allowedValues": [
+                "VpnGw1",
+                "VpnGw2",
+                "VpnGw3",
+                "VpnGw1AZ",
+                "VpnGw2AZ",
+                "VpnGw3AZ",
+                "VpnGw4AZ",
+                "VpnGw5AZ"
+              ],
+              "metadata": {
+                "description": "VPN gateway SKU. Zone-redundant SKUs (VpnGw#AZ) are recommended. Parameterised so it can be changed if VpnGw2AZ is unavailable in the region."
+              }
+            },
+            "vpnClientAddressPool": {
+              "type": "string",
+              "metadata": {
+                "description": "VPN client address pool (must NOT overlap the VNet address space)."
+              }
+            },
+            "aadTenantId": {
+              "type": "string",
+              "metadata": {
+                "description": "Entra ID (Azure AD) tenant GUID used for P2S authentication."
+              }
+            },
+            "aadAudience": {
+              "type": "string",
+              "metadata": {
+                "description": "Entra ID audience (application ID) for the Azure VPN Client. Default is the Microsoft-registered Azure VPN Client app."
+              }
+            },
+            "vpnClientProtocols": {
+              "type": "array",
+              "defaultValue": [
+                "OpenVPN"
+              ],
+              "metadata": {
+                "description": "VPN client tunnel protocols."
+              }
+            }
+          },
+          "variables": {
+            "isZoneRedundantSku": "[endsWith(parameters('vpnGatewaySku'), 'AZ')]",
+            "aadTenantUri": "[format('{0}{1}/', environment().authentication.loginEndpoint, parameters('aadTenantId'))]",
+            "aadIssuerUri": "[format('https://sts.windows.net/{0}/', parameters('aadTenantId'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('publicIpName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+              },
+              "zones": "[if(variables('isZoneRedundantSku'), createArray('1', '2', '3'), null())]",
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworkGateways",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('gatewayName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "gatewayType": "Vpn",
+                "vpnType": "RouteBased",
+                "enableBgp": false,
+                "activeActive": false,
+                "sku": {
+                  "name": "[parameters('vpnGatewaySku')]",
+                  "tier": "[parameters('vpnGatewaySku')]"
+                },
+                "ipConfigurations": [
+                  {
+                    "name": "vnetGatewayConfig",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "subnet": {
+                        "id": "[parameters('gatewaySubnetId')]"
+                      },
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+                      }
+                    }
+                  }
+                ],
+                "vpnClientConfiguration": {
+                  "vpnClientAddressPool": {
+                    "addressPrefixes": [
+                      "[parameters('vpnClientAddressPool')]"
+                    ]
+                  },
+                  "vpnClientProtocols": "[parameters('vpnClientProtocols')]",
+                  "vpnAuthenticationTypes": [
+                    "AAD"
+                  ],
+                  "aadTenant": "[variables('aadTenantUri')]",
+                  "aadAudience": "[parameters('aadAudience')]",
+                  "aadIssuer": "[variables('aadIssuerUri')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vpnGatewayId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the VPN gateway."
+              },
+              "value": "[resourceId('Microsoft.Network/virtualNetworkGateways', parameters('gatewayName'))]"
+            },
+            "vpnGatewayName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the VPN gateway."
+              },
+              "value": "[parameters('gatewayName')]"
+            },
+            "publicIpAddress": {
+              "type": "string",
+              "metadata": {
+                "description": "Public IP address allocated to the VPN gateway."
+              },
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName')), '2024-05-01').ipAddress]"
+            },
+            "publicIpId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the VPN gateway Public IP."
+              },
+              "value": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "storage-networking",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "storageAccountName": {
+            "value": "[parameters('storageAccountName')]"
+          },
+          "storageAccountSku": {
+            "value": "[parameters('storageAccountSku')]"
+          },
+          "storageAccountKind": {
+            "value": "[parameters('storageAccountKind')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
+          },
+          "blobZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('blobZoneName')]]"
+          },
+          "fileZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('fileZoneName')]]"
+          },
+          "queueZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('queueZoneName')]]"
+          },
+          "tableZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('tableZoneName')]]"
+          },
+          "disablePublicNetworkAccess": {
+            "value": "[parameters('disablePublicNetworkAccess')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "11717215235820480244"
+            }
+          },
+          "parameters": {
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing storage account."
+              }
+            },
+            "storageAccountSku": {
+              "type": "string",
+              "defaultValue": "Standard_LRS",
+              "metadata": {
+                "description": "SKU of the existing storage account (must match the live account)."
+              }
+            },
+            "storageAccountKind": {
+              "type": "string",
+              "defaultValue": "StorageV2",
+              "metadata": {
+                "description": "Kind of the existing storage account (must match the live account)."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Region of the existing storage account (must match the live account)."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet that hosts the private endpoints."
+              }
+            },
+            "blobZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.blob.core.windows.net."
+              }
+            },
+            "fileZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.file.core.windows.net."
+              }
+            },
+            "queueZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.queue.core.windows.net."
+              }
+            },
+            "tableZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.table.core.windows.net."
+              }
+            },
+            "disablePublicNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Disable public network access after private endpoints are created."
+              }
+            }
+          },
+          "variables": {
+            "storagePeDefs": [
+              {
+                "suffix": "blob",
+                "groupId": "blob",
+                "zoneId": "[parameters('blobZoneId')]"
+              },
+              {
+                "suffix": "file",
+                "groupId": "file",
+                "zoneId": "[parameters('fileZoneId')]"
+              },
+              {
+                "suffix": "queue",
+                "groupId": "queue",
+                "zoneId": "[parameters('queueZoneId')]"
+              },
+              {
+                "suffix": "table",
+                "groupId": "table",
+                "zoneId": "[parameters('tableZoneId')]"
+              }
+            ]
+          },
+          "resources": [
+            {
+              "condition": "[parameters('disablePublicNetworkAccess')]",
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[parameters('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('storageAccountSku')]"
+              },
+              "kind": "[parameters('storageAccountKind')]",
+              "properties": {
+                "publicNetworkAccess": "Disabled",
+                "allowBlobPublicAccess": false,
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true,
+                "networkAcls": {
+                  "bypass": "AzureServices",
+                  "defaultAction": "Deny"
+                }
+              },
+              "dependsOn": [
+                "storagePrivateEndpoints"
+              ]
+            },
+            {
+              "copy": {
+                "name": "storagePrivateEndpoints",
+                "count": "[length(variables('storagePeDefs'))]"
+              },
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "[format('pe-{0}-{1}', parameters('storageAccountName'), variables('storagePeDefs')[copyIndex()].suffix)]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[format('pe-{0}-{1}', parameters('storageAccountName'), variables('storagePeDefs')[copyIndex()].suffix)]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "subnetId": {
+                    "value": "[parameters('subnetId')]"
+                  },
+                  "targetResourceId": {
+                    "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+                  },
+                  "groupIds": {
+                    "value": [
+                      "[variables('storagePeDefs')[copyIndex()].groupId]"
+                    ]
+                  },
+                  "privateDnsZoneConfigs": {
+                    "value": [
+                      {
+                        "name": "[variables('storagePeDefs')[copyIndex()].suffix]",
+                        "zoneId": "[variables('storagePeDefs')[copyIndex()].zoneId]"
+                      }
+                    ]
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.42.1.51946",
+                      "templateHash": "16253897479090391798"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      }
+                    },
+                    "location": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Azure region."
+                      }
+                    },
+                    "tags": {
+                      "type": "object",
+                      "defaultValue": {},
+                      "metadata": {
+                        "description": "Resource tags."
+                      }
+                    },
+                    "subnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the subnet hosting the private endpoint."
+                      }
+                    },
+                    "targetResourceId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the target resource to connect privately."
+                      }
+                    },
+                    "groupIds": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Group IDs (sub-resources) for the private link connection, e.g. [ blob ], [ Sql ], [ account ]."
+                      }
+                    },
+                    "privateDnsZoneConfigs": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Private DNS zone configs: array of objects { name: string, zoneId: string }."
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/privateEndpoints",
+                      "apiVersion": "2024-05-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[parameters('subnetId')]"
+                        },
+                        "customNetworkInterfaceName": "[format('{0}-nic', parameters('name'))]",
+                        "privateLinkServiceConnections": [
+                          {
+                            "name": "[format('{0}-conn', parameters('name'))]",
+                            "properties": {
+                              "privateLinkServiceId": "[parameters('targetResourceId')]",
+                              "groupIds": "[parameters('groupIds')]"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                      "apiVersion": "2024-05-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+                      "properties": {
+                        "copy": [
+                          {
+                            "name": "privateDnsZoneConfigs",
+                            "count": "[length(parameters('privateDnsZoneConfigs'))]",
+                            "input": {
+                              "name": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].name]",
+                              "properties": {
+                                "privateDnsZoneId": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].zoneId]"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "privateEndpointId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the private endpoint."
+                      },
+                      "value": "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                    },
+                    "privateEndpointName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      },
+                      "value": "[parameters('name')]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "privateEndpointIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Resource IDs of the storage private endpoints."
+              },
+              "copy": {
+                "count": "[length(variables('storagePeDefs'))]",
+                "input": "[reference(resourceId('Microsoft.Resources/deployments', format('pe-{0}-{1}', parameters('storageAccountName'), variables('storagePeDefs')[copyIndex()].suffix)), '2025-04-01').outputs.privateEndpointId.value]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "cosmos-networking",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "cosmosAccountName": {
+            "value": "[parameters('cosmosAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
+          },
+          "documentsZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('documentsZoneName')]]"
+          },
+          "disablePublicNetworkAccess": {
+            "value": "[parameters('disablePublicNetworkAccess')]"
+          },
+          "cosmosKind": {
+            "value": "[parameters('cosmosKind')]"
+          },
+          "cosmosPrimaryRegion": {
+            "value": "[parameters('cosmosPrimaryRegion')]"
+          },
+          "cosmosConsistencyLevel": {
+            "value": "[parameters('cosmosConsistencyLevel')]"
+          },
+          "cosmosCapabilities": {
+            "value": "[parameters('cosmosCapabilities')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "5295335811201349988"
+            }
+          },
+          "parameters": {
+            "cosmosAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Cosmos DB account."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Region of the existing Cosmos DB account (must match the live account)."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet that hosts the private endpoint."
+              }
+            },
+            "documentsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.documents.azure.com."
+              }
+            },
+            "disablePublicNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Disable public network access after the private endpoint is created."
+              }
+            },
+            "cosmosKind": {
+              "type": "string",
+              "defaultValue": "GlobalDocumentDB",
+              "metadata": {
+                "description": "Cosmos account kind (must match the live account)."
+              }
+            },
+            "cosmosPrimaryRegion": {
+              "type": "string",
+              "metadata": {
+                "description": "Primary write region of the existing account (must match the live account)."
+              }
+            },
+            "cosmosDatabaseAccountOfferType": {
+              "type": "string",
+              "defaultValue": "Standard",
+              "metadata": {
+                "description": "Database account offer type (must match the live account)."
+              }
+            },
+            "cosmosConsistencyLevel": {
+              "type": "string",
+              "defaultValue": "Session",
+              "allowedValues": [
+                "Eventual",
+                "ConsistentPrefix",
+                "Session",
+                "BoundedStaleness",
+                "Strong"
+              ],
+              "metadata": {
+                "description": "Default consistency level (must match the live account)."
+              }
+            },
+            "cosmosCapabilities": {
+              "type": "array",
+              "defaultValue": [],
+              "metadata": {
+                "description": "Capabilities of the existing account, e.g. [ { name: EnableServerless } ] (must match the live account)."
+              }
+            }
+          },
+          "resources": [
+            {
+              "condition": "[parameters('disablePublicNetworkAccess')]",
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2024-11-15",
+              "name": "[parameters('cosmosAccountName')]",
+              "location": "[parameters('cosmosPrimaryRegion')]",
+              "kind": "[parameters('cosmosKind')]",
+              "properties": {
+                "databaseAccountOfferType": "[parameters('cosmosDatabaseAccountOfferType')]",
+                "consistencyPolicy": {
+                  "defaultConsistencyLevel": "[parameters('cosmosConsistencyLevel')]"
+                },
+                "locations": [
+                  {
+                    "locationName": "[parameters('cosmosPrimaryRegion')]",
+                    "failoverPriority": 0,
+                    "isZoneRedundant": false
+                  }
+                ],
+                "capabilities": "[parameters('cosmosCapabilities')]",
+                "publicNetworkAccess": "Disabled",
+                "isVirtualNetworkFilterEnabled": true,
+                "networkAclBypass": "AzureServices"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', format('pe-{0}-sql', parameters('cosmosAccountName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "[format('pe-{0}-sql', parameters('cosmosAccountName'))]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[format('pe-{0}-sql', parameters('cosmosAccountName'))]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "subnetId": {
+                    "value": "[parameters('subnetId')]"
+                  },
+                  "targetResourceId": {
+                    "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+                  },
+                  "groupIds": {
+                    "value": [
+                      "Sql"
+                    ]
+                  },
+                  "privateDnsZoneConfigs": {
+                    "value": [
+                      {
+                        "name": "documents",
+                        "zoneId": "[parameters('documentsZoneId')]"
+                      }
+                    ]
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.42.1.51946",
+                      "templateHash": "16253897479090391798"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      }
+                    },
+                    "location": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Azure region."
+                      }
+                    },
+                    "tags": {
+                      "type": "object",
+                      "defaultValue": {},
+                      "metadata": {
+                        "description": "Resource tags."
+                      }
+                    },
+                    "subnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the subnet hosting the private endpoint."
+                      }
+                    },
+                    "targetResourceId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the target resource to connect privately."
+                      }
+                    },
+                    "groupIds": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Group IDs (sub-resources) for the private link connection, e.g. [ blob ], [ Sql ], [ account ]."
+                      }
+                    },
+                    "privateDnsZoneConfigs": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Private DNS zone configs: array of objects { name: string, zoneId: string }."
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/privateEndpoints",
+                      "apiVersion": "2024-05-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[parameters('subnetId')]"
+                        },
+                        "customNetworkInterfaceName": "[format('{0}-nic', parameters('name'))]",
+                        "privateLinkServiceConnections": [
+                          {
+                            "name": "[format('{0}-conn', parameters('name'))]",
+                            "properties": {
+                              "privateLinkServiceId": "[parameters('targetResourceId')]",
+                              "groupIds": "[parameters('groupIds')]"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                      "apiVersion": "2024-05-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+                      "properties": {
+                        "copy": [
+                          {
+                            "name": "privateDnsZoneConfigs",
+                            "count": "[length(parameters('privateDnsZoneConfigs'))]",
+                            "input": {
+                              "name": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].name]",
+                              "properties": {
+                                "privateDnsZoneId": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].zoneId]"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "privateEndpointId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the private endpoint."
+                      },
+                      "value": "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                    },
+                    "privateEndpointName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      },
+                      "value": "[parameters('name')]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "privateEndpointId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Cosmos DB private endpoint."
+              },
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', format('pe-{0}-sql', parameters('cosmosAccountName'))), '2025-04-01').outputs.privateEndpointId.value]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "ai-networking",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiServicesAccountName": {
+            "value": "[parameters('aiServicesAccountName')]"
+          },
+          "aiFoundryAccountName": {
+            "value": "[parameters('aiFoundryAccountName')]"
+          },
+          "aiServicesKind": {
+            "value": "[parameters('aiServicesKind')]"
+          },
+          "aiFoundryKind": {
+            "value": "[parameters('aiFoundryKind')]"
+          },
+          "aiServicesSku": {
+            "value": "[parameters('aiServicesSku')]"
+          },
+          "aiFoundrySku": {
+            "value": "[parameters('aiFoundrySku')]"
+          },
+          "aiServicesCustomSubDomain": {
+            "value": "[parameters('aiServicesCustomSubDomain')]"
+          },
+          "aiFoundryCustomSubDomain": {
+            "value": "[parameters('aiFoundryCustomSubDomain')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
+          },
+          "cognitiveServicesZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('cognitiveServicesZoneName')]]"
+          },
+          "openAiZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('openAiZoneName')]]"
+          },
+          "servicesAiZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneMap.value[variables('servicesAiZoneName')]]"
+          },
+          "disablePublicNetworkAccess": {
+            "value": "[parameters('disablePublicNetworkAccess')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "4435765537039675396"
+            }
+          },
+          "parameters": {
+            "aiServicesAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Azure AI Services multi-service account."
+              }
+            },
+            "aiFoundryAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Azure AI Foundry account."
+              }
+            },
+            "aiServicesKind": {
+              "type": "string",
+              "defaultValue": "CognitiveServices",
+              "metadata": {
+                "description": "Kind of the AI Services account (must match the live account)."
+              }
+            },
+            "aiFoundryKind": {
+              "type": "string",
+              "defaultValue": "AIServices",
+              "metadata": {
+                "description": "Kind of the AI Foundry account (must match the live account)."
+              }
+            },
+            "aiServicesSku": {
+              "type": "string",
+              "defaultValue": "S0",
+              "metadata": {
+                "description": "SKU of the AI Services account (must match the live account)."
+              }
+            },
+            "aiFoundrySku": {
+              "type": "string",
+              "defaultValue": "S0",
+              "metadata": {
+                "description": "SKU of the AI Foundry account (must match the live account)."
+              }
+            },
+            "aiServicesCustomSubDomain": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Custom subdomain of the AI Services account (must match the live account)."
+              }
+            },
+            "aiFoundryCustomSubDomain": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Custom subdomain of the AI Foundry account (must match the live account)."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Region of the existing accounts (must match the live accounts)."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags."
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the subnet that hosts the private endpoints."
+              }
+            },
+            "cognitiveServicesZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.cognitiveservices.azure.com."
+              }
+            },
+            "openAiZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.openai.azure.com."
+              }
+            },
+            "servicesAiZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of privatelink.services.ai.azure.com."
+              }
+            },
+            "disablePublicNetworkAccess": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Disable public network access after the private endpoints are created."
+              }
+            }
+          },
+          "variables": {
+            "aiDnsZoneConfigs": [
+              {
+                "name": "cognitiveservices",
+                "zoneId": "[parameters('cognitiveServicesZoneId')]"
+              },
+              {
+                "name": "openai",
+                "zoneId": "[parameters('openAiZoneId')]"
+              },
+              {
+                "name": "servicesai",
+                "zoneId": "[parameters('servicesAiZoneId')]"
+              }
+            ]
+          },
+          "resources": [
+            {
+              "condition": "[parameters('disablePublicNetworkAccess')]",
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2024-10-01",
+              "name": "[parameters('aiServicesAccountName')]",
+              "location": "[parameters('location')]",
+              "kind": "[parameters('aiServicesKind')]",
+              "sku": {
+                "name": "[parameters('aiServicesSku')]"
+              },
+              "properties": {
+                "customSubDomainName": "[if(empty(parameters('aiServicesCustomSubDomain')), parameters('aiServicesAccountName'), parameters('aiServicesCustomSubDomain'))]",
+                "publicNetworkAccess": "Disabled",
+                "networkAcls": {
+                  "defaultAction": "Deny"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', format('pe-{0}', parameters('aiServicesAccountName')))]"
+              ]
+            },
+            {
+              "condition": "[parameters('disablePublicNetworkAccess')]",
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2024-10-01",
+              "name": "[parameters('aiFoundryAccountName')]",
+              "location": "[parameters('location')]",
+              "kind": "[parameters('aiFoundryKind')]",
+              "sku": {
+                "name": "[parameters('aiFoundrySku')]"
+              },
+              "properties": {
+                "customSubDomainName": "[if(empty(parameters('aiFoundryCustomSubDomain')), parameters('aiFoundryAccountName'), parameters('aiFoundryCustomSubDomain'))]",
+                "publicNetworkAccess": "Disabled",
+                "networkAcls": {
+                  "defaultAction": "Deny"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', format('pe-{0}', parameters('aiFoundryAccountName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "[format('pe-{0}', parameters('aiServicesAccountName'))]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[format('pe-{0}', parameters('aiServicesAccountName'))]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "subnetId": {
+                    "value": "[parameters('subnetId')]"
+                  },
+                  "targetResourceId": {
+                    "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesAccountName'))]"
+                  },
+                  "groupIds": {
+                    "value": [
+                      "account"
+                    ]
+                  },
+                  "privateDnsZoneConfigs": {
+                    "value": "[variables('aiDnsZoneConfigs')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.42.1.51946",
+                      "templateHash": "16253897479090391798"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      }
+                    },
+                    "location": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Azure region."
+                      }
+                    },
+                    "tags": {
+                      "type": "object",
+                      "defaultValue": {},
+                      "metadata": {
+                        "description": "Resource tags."
+                      }
+                    },
+                    "subnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the subnet hosting the private endpoint."
+                      }
+                    },
+                    "targetResourceId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the target resource to connect privately."
+                      }
+                    },
+                    "groupIds": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Group IDs (sub-resources) for the private link connection, e.g. [ blob ], [ Sql ], [ account ]."
+                      }
+                    },
+                    "privateDnsZoneConfigs": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Private DNS zone configs: array of objects { name: string, zoneId: string }."
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/privateEndpoints",
+                      "apiVersion": "2024-05-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[parameters('subnetId')]"
+                        },
+                        "customNetworkInterfaceName": "[format('{0}-nic', parameters('name'))]",
+                        "privateLinkServiceConnections": [
+                          {
+                            "name": "[format('{0}-conn', parameters('name'))]",
+                            "properties": {
+                              "privateLinkServiceId": "[parameters('targetResourceId')]",
+                              "groupIds": "[parameters('groupIds')]"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                      "apiVersion": "2024-05-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+                      "properties": {
+                        "copy": [
+                          {
+                            "name": "privateDnsZoneConfigs",
+                            "count": "[length(parameters('privateDnsZoneConfigs'))]",
+                            "input": {
+                              "name": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].name]",
+                              "properties": {
+                                "privateDnsZoneId": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].zoneId]"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "privateEndpointId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the private endpoint."
+                      },
+                      "value": "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                    },
+                    "privateEndpointName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      },
+                      "value": "[parameters('name')]"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "[format('pe-{0}', parameters('aiFoundryAccountName'))]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[format('pe-{0}', parameters('aiFoundryAccountName'))]"
+                  },
+                  "location": {
+                    "value": "[parameters('location')]"
+                  },
+                  "tags": {
+                    "value": "[parameters('tags')]"
+                  },
+                  "subnetId": {
+                    "value": "[parameters('subnetId')]"
+                  },
+                  "targetResourceId": {
+                    "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryAccountName'))]"
+                  },
+                  "groupIds": {
+                    "value": [
+                      "account"
+                    ]
+                  },
+                  "privateDnsZoneConfigs": {
+                    "value": "[variables('aiDnsZoneConfigs')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.42.1.51946",
+                      "templateHash": "16253897479090391798"
+                    }
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      }
+                    },
+                    "location": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Azure region."
+                      }
+                    },
+                    "tags": {
+                      "type": "object",
+                      "defaultValue": {},
+                      "metadata": {
+                        "description": "Resource tags."
+                      }
+                    },
+                    "subnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the subnet hosting the private endpoint."
+                      }
+                    },
+                    "targetResourceId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the target resource to connect privately."
+                      }
+                    },
+                    "groupIds": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Group IDs (sub-resources) for the private link connection, e.g. [ blob ], [ Sql ], [ account ]."
+                      }
+                    },
+                    "privateDnsZoneConfigs": {
+                      "type": "array",
+                      "metadata": {
+                        "description": "Private DNS zone configs: array of objects { name: string, zoneId: string }."
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/privateEndpoints",
+                      "apiVersion": "2024-05-01",
+                      "name": "[parameters('name')]",
+                      "location": "[parameters('location')]",
+                      "tags": "[parameters('tags')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[parameters('subnetId')]"
+                        },
+                        "customNetworkInterfaceName": "[format('{0}-nic', parameters('name'))]",
+                        "privateLinkServiceConnections": [
+                          {
+                            "name": "[format('{0}-conn', parameters('name'))]",
+                            "properties": {
+                              "privateLinkServiceId": "[parameters('targetResourceId')]",
+                              "groupIds": "[parameters('groupIds')]"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+                      "apiVersion": "2024-05-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+                      "properties": {
+                        "copy": [
+                          {
+                            "name": "privateDnsZoneConfigs",
+                            "count": "[length(parameters('privateDnsZoneConfigs'))]",
+                            "input": {
+                              "name": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].name]",
+                              "properties": {
+                                "privateDnsZoneId": "[parameters('privateDnsZoneConfigs')[copyIndex('privateDnsZoneConfigs')].zoneId]"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "dependsOn": [
+                        "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                      ]
+                    }
+                  ],
+                  "outputs": {
+                    "privateEndpointId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Resource ID of the private endpoint."
+                      },
+                      "value": "[resourceId('Microsoft.Network/privateEndpoints', parameters('name'))]"
+                    },
+                    "privateEndpointName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Name of the private endpoint."
+                      },
+                      "value": "[parameters('name')]"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "aiServicesPrivateEndpointId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the AI Services private endpoint."
+              },
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', format('pe-{0}', parameters('aiServicesAccountName'))), '2025-04-01').outputs.privateEndpointId.value]"
+            },
+            "aiFoundryPrivateEndpointId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the AI Foundry private endpoint."
+              },
+              "value": "[reference(resourceId('Microsoft.Resources/deployments', format('pe-{0}', parameters('aiFoundryAccountName'))), '2025-04-01').outputs.privateEndpointId.value]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "search-shared-private-link",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "searchServiceName": {
+            "value": "[parameters('searchServiceName')]"
+          },
+          "targetResourceId": {
+            "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+          },
+          "groupId": {
+            "value": "[parameters('searchSharedPrivateLinkGroupId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "17003275656768254125"
+            }
+          },
+          "parameters": {
+            "searchServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Azure AI Search service."
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the target resource to connect privately (storage account, Cognitive Services account, etc.)."
+              }
+            },
+            "groupId": {
+              "type": "string",
+              "defaultValue": "blob",
+              "allowedValues": [
+                "blob",
+                "table",
+                "queue",
+                "file",
+                "dfs",
+                "Sql",
+                "vault",
+                "sites",
+                "openai_account",
+                "cognitiveservices_account",
+                "amlworkspace"
+              ],
+              "metadata": {
+                "description": "Shared private link group ID (sub-resource). Storage: blob/table/queue/file/dfs. Azure OpenAI / AI Foundry: openai_account. Cognitive Services multi-service: cognitiveservices_account."
+              }
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "defaultValue": "[format('spl-{0}-{1}', parameters('searchServiceName'), parameters('groupId'))]",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              }
+            },
+            "requestMessage": {
+              "type": "string",
+              "defaultValue": "[format('Azure AI Search indexer shared private link ({0})', parameters('groupId'))]",
+              "metadata": {
+                "description": "Message shown on the target private endpoint connection request."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Search/searchServices/sharedPrivateLinkResources",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]",
+              "properties": {
+                "privateLinkResourceId": "[parameters('targetResourceId')]",
+                "groupId": "[parameters('groupId')]",
+                "requestMessage": "[parameters('requestMessage')]"
+              }
+            }
+          ],
+          "outputs": {
+            "sharedPrivateLinkResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the shared private link resource."
+              },
+              "value": "[resourceId('Microsoft.Search/searchServices/sharedPrivateLinkResources', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]"
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              },
+              "value": "[parameters('sharedPrivateLinkResourceName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'storage-networking')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "search-spl-foundry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "searchServiceName": {
+            "value": "[parameters('searchServiceName')]"
+          },
+          "targetResourceId": {
+            "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiFoundryAccountName'))]"
+          },
+          "groupId": {
+            "value": "[parameters('searchFoundryGroupId')]"
+          },
+          "sharedPrivateLinkResourceName": {
+            "value": "[format('spl-{0}-openai', parameters('aiFoundryAccountName'))]"
+          },
+          "requestMessage": {
+            "value": "AI Search indexer shared private link to AI Foundry (chat completion skills)"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "17003275656768254125"
+            }
+          },
+          "parameters": {
+            "searchServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Azure AI Search service."
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the target resource to connect privately (storage account, Cognitive Services account, etc.)."
+              }
+            },
+            "groupId": {
+              "type": "string",
+              "defaultValue": "blob",
+              "allowedValues": [
+                "blob",
+                "table",
+                "queue",
+                "file",
+                "dfs",
+                "Sql",
+                "vault",
+                "sites",
+                "openai_account",
+                "cognitiveservices_account",
+                "amlworkspace"
+              ],
+              "metadata": {
+                "description": "Shared private link group ID (sub-resource). Storage: blob/table/queue/file/dfs. Azure OpenAI / AI Foundry: openai_account. Cognitive Services multi-service: cognitiveservices_account."
+              }
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "defaultValue": "[format('spl-{0}-{1}', parameters('searchServiceName'), parameters('groupId'))]",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              }
+            },
+            "requestMessage": {
+              "type": "string",
+              "defaultValue": "[format('Azure AI Search indexer shared private link ({0})', parameters('groupId'))]",
+              "metadata": {
+                "description": "Message shown on the target private endpoint connection request."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Search/searchServices/sharedPrivateLinkResources",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]",
+              "properties": {
+                "privateLinkResourceId": "[parameters('targetResourceId')]",
+                "groupId": "[parameters('groupId')]",
+                "requestMessage": "[parameters('requestMessage')]"
+              }
+            }
+          ],
+          "outputs": {
+            "sharedPrivateLinkResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the shared private link resource."
+              },
+              "value": "[resourceId('Microsoft.Search/searchServices/sharedPrivateLinkResources', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]"
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              },
+              "value": "[parameters('sharedPrivateLinkResourceName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-networking')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "search-spl-multiservice",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "searchServiceName": {
+            "value": "[parameters('searchServiceName')]"
+          },
+          "targetResourceId": {
+            "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesAccountName'))]"
+          },
+          "groupId": {
+            "value": "[parameters('searchMultiServiceGroupId')]"
+          },
+          "sharedPrivateLinkResourceName": {
+            "value": "[format('spl-{0}-cognitiveservices', parameters('aiServicesAccountName'))]"
+          },
+          "requestMessage": {
+            "value": "AI Search indexer shared private link to multi-service Cognitive account (skills)"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "17003275656768254125"
+            }
+          },
+          "parameters": {
+            "searchServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the existing Azure AI Search service."
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the target resource to connect privately (storage account, Cognitive Services account, etc.)."
+              }
+            },
+            "groupId": {
+              "type": "string",
+              "defaultValue": "blob",
+              "allowedValues": [
+                "blob",
+                "table",
+                "queue",
+                "file",
+                "dfs",
+                "Sql",
+                "vault",
+                "sites",
+                "openai_account",
+                "cognitiveservices_account",
+                "amlworkspace"
+              ],
+              "metadata": {
+                "description": "Shared private link group ID (sub-resource). Storage: blob/table/queue/file/dfs. Azure OpenAI / AI Foundry: openai_account. Cognitive Services multi-service: cognitiveservices_account."
+              }
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "defaultValue": "[format('spl-{0}-{1}', parameters('searchServiceName'), parameters('groupId'))]",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              }
+            },
+            "requestMessage": {
+              "type": "string",
+              "defaultValue": "[format('Azure AI Search indexer shared private link ({0})', parameters('groupId'))]",
+              "metadata": {
+                "description": "Message shown on the target private endpoint connection request."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Search/searchServices/sharedPrivateLinkResources",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]",
+              "properties": {
+                "privateLinkResourceId": "[parameters('targetResourceId')]",
+                "groupId": "[parameters('groupId')]",
+                "requestMessage": "[parameters('requestMessage')]"
+              }
+            }
+          ],
+          "outputs": {
+            "sharedPrivateLinkResourceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the shared private link resource."
+              },
+              "value": "[resourceId('Microsoft.Search/searchServices/sharedPrivateLinkResources', parameters('searchServiceName'), parameters('sharedPrivateLinkResourceName'))]"
+            },
+            "sharedPrivateLinkResourceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the shared private link resource."
+              },
+              "value": "[parameters('sharedPrivateLinkResourceName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'ai-networking')]",
+        "[resourceId('Microsoft.Resources/deployments', 'search-spl-foundry')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the virtual network."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.vnetId.value]"
+    },
+    "vpnGatewayId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the VPN gateway."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vpn-gateway'), '2025-04-01').outputs.vpnGatewayId.value]"
+    },
+    "vpnGatewayPublicIp": {
+      "type": "string",
+      "metadata": {
+        "description": "Public IP address of the VPN gateway."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vpn-gateway'), '2025-04-01').outputs.publicIpAddress.value]"
+    },
+    "privateEndpointIds": {
+      "type": "object",
+      "metadata": {
+        "description": "Resource IDs of every private endpoint created."
+      },
+      "value": {
+        "storage": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-networking'), '2025-04-01').outputs.privateEndpointIds.value]",
+        "cosmos": "[reference(resourceId('Microsoft.Resources/deployments', 'cosmos-networking'), '2025-04-01').outputs.privateEndpointId.value]",
+        "aiServices": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-networking'), '2025-04-01').outputs.aiServicesPrivateEndpointId.value]",
+        "aiFoundry": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-networking'), '2025-04-01').outputs.aiFoundryPrivateEndpointId.value]"
+      }
+    },
+    "privateDnsZoneIds": {
+      "type": "array",
+      "metadata": {
+        "description": "Resource IDs of every Private DNS zone created."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns'), '2025-04-01').outputs.zoneIds.value]"
+    },
+    "dnsResolverId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the DNS Private Resolver."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'dns-resolver'), '2025-04-01').outputs.dnsResolverId.value]"
+    },
+    "dnsResolverInboundIp": {
+      "type": "string",
+      "metadata": {
+        "description": "Inbound DNS resolver IP pushed to VPN clients as their DNS server."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'dns-resolver'), '2025-04-01').outputs.inboundEndpointIp.value]"
+    },
+    "searchSharedPrivateLinkResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the AI Search shared private link to storage."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'search-shared-private-link'), '2025-04-01').outputs.sharedPrivateLinkResourceId.value]"
+    },
+    "searchFoundrySharedPrivateLinkResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the AI Search shared private link to AI Foundry (openai_account)."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'search-spl-foundry'), '2025-04-01').outputs.sharedPrivateLinkResourceId.value]"
+    },
+    "searchMultiServiceSharedPrivateLinkResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the AI Search shared private link to the multi-service Cognitive account (cognitiveservices_account)."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'search-spl-multiservice'), '2025-04-01').outputs.sharedPrivateLinkResourceId.value]"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "aiServicesAccountName": "<existing-ai-services-multi-service-account-name>",
+  "aiFoundryAccountName": "<existing-ai-foundry-account-name>",
+  "cosmosAccountName": "<existing-cosmos-account-name>",
+  "storageAccountName": "<existing-storage-account-name>",
+  "searchServiceName": "<existing-ai-search-service-name>"
+}

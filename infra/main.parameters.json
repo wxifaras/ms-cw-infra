@@ -1,0 +1,139 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus"
+    },
+    "tags": {
+      "value": {
+        "workload": "ai-engineering-assistant",
+        "environment": "dev",
+        "managedBy": "bicep"
+      }
+    },
+    "disablePublicNetworkAccess": {
+      "value": true
+    },
+
+    "vnetName": {
+      "value": "vnet-ai-dev"
+    },
+    "vnetAddressPrefixes": {
+      "value": [
+        "10.10.0.0/23"
+      ]
+    },
+    "gatewaySubnetPrefix": {
+      "value": "10.10.0.0/26"
+    },
+    "privateEndpointsSubnetName": {
+      "value": "snet-private-endpoints"
+    },
+    "privateEndpointsSubnetPrefix": {
+      "value": "10.10.0.64/27"
+    },
+    "computeSubnetName": {
+      "value": "snet-compute"
+    },
+    "computeSubnetPrefix": {
+      "value": "10.10.0.96/27"
+    },
+    "managementSubnetName": {
+      "value": "snet-management"
+    },
+    "managementSubnetPrefix": {
+      "value": "10.10.0.128/27"
+    },
+    "dnsResolverInboundSubnetName": {
+      "value": "snet-dns-inbound"
+    },
+    "dnsResolverInboundSubnetPrefix": {
+      "value": "10.10.0.160/28"
+    },
+    "dnsResolverInboundIp": {
+      "value": "10.10.0.164"
+    },
+    "dnsResolverName": {
+      "value": "dnspr-ai-dev"
+    },
+    "dnsResolverInboundEndpointName": {
+      "value": "inbound"
+    },
+
+    "privateEndpointsNsgName": {
+      "value": "nsg-snet-private-endpoints"
+    },
+    "computeNsgName": {
+      "value": "nsg-snet-compute"
+    },
+    "managementNsgName": {
+      "value": "nsg-snet-management"
+    },
+
+    "vpnGatewayName": {
+      "value": "vpngw-ai-dev"
+    },
+    "vpnPublicIpName": {
+      "value": "pip-vpngw-ai-dev"
+    },
+    "vpnGatewaySku": {
+      "value": "VpnGw2AZ"
+    },
+    "vpnClientAddressPool": {
+      "value": "172.16.10.0/24"
+    },
+    "aadAudience": {
+      "value": "41b23e61-6c1e-4545-b367-cd054e0ed4b4"
+    },
+
+    "searchSharedPrivateLinkGroupId": {
+      "value": "blob"
+    },
+    "searchFoundryGroupId": {
+      "value": "openai_account"
+    },
+    "searchMultiServiceGroupId": {
+      "value": "cognitiveservices_account"
+    },
+
+    "storageAccountSku": {
+      "value": "Standard_LRS"
+    },
+    "storageAccountKind": {
+      "value": "StorageV2"
+    },
+
+    "cosmosKind": {
+      "value": "GlobalDocumentDB"
+    },
+    "cosmosPrimaryRegion": {
+      "value": "centralus"
+    },
+    "cosmosConsistencyLevel": {
+      "value": "Session"
+    },
+    "cosmosCapabilities": {
+      "value": []
+    },
+
+    "aiServicesKind": {
+      "value": "CognitiveServices"
+    },
+    "aiFoundryKind": {
+      "value": "AIServices"
+    },
+    "aiServicesSku": {
+      "value": "S0"
+    },
+    "aiFoundrySku": {
+      "value": "S0"
+    },
+    "aiServicesCustomSubDomain": {
+      "value": ""
+    },
+    "aiFoundryCustomSubDomain": {
+      "value": ""
+    }
+  }
+}
