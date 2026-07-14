@@ -7,7 +7,7 @@
     },
     "tags": {
       "value": {
-        "workload": "ai-engineering-assistant",
+        "workload": "ms-cw-infra",
         "environment": "dev",
         "managedBy": "bicep"
       }
